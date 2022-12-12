@@ -25,9 +25,13 @@ from dfcx_scrapi.core import intents
 from dfcx_scrapi.core import flows
 from dfcx_scrapi.core import pages
 from dfcx_scrapi.core import entity_types
-from dfcx_scrapi.core import transition_route_groups
+from dfcx_scrapi.core import (
+    transition_route_groups,
+)
 
-from google.cloud.dialogflowcx_v3beta1 import types
+from google.cloud.dialogflowcx_v3beta1 import (
+    types,
+)
 from google.oauth2 import service_account
 
 # logging config
@@ -58,28 +62,38 @@ class SearchUtil(scrapi_base.ScrapiBase):
 
         logging.info("create dfcx creds %s", creds_path)
         self.intents = intents.Intents(
-            creds_path=creds_path, creds_dict=creds_dict
+            creds_path=creds_path,
+            creds_dict=creds_dict,
         )
         self.entities = entity_types.EntityTypes(
-            creds_path=creds_path, creds_dict=creds_dict
+            creds_path=creds_path,
+            creds_dict=creds_dict,
         )
-        self.flows = flows.Flows(creds_path=creds_path, creds_dict=creds_dict)
-        self.pages = pages.Pages(creds_path=creds_path, creds_dict=creds_dict)
-        self.route_groups = transition_route_groups.TransitionRouteGroups(
-            creds_path, creds_dict
+        self.flows = flows.Flows(
+            creds_path=creds_path,
+            creds_dict=creds_dict,
         )
+        self.pages = pages.Pages(
+            creds_path=creds_path,
+            creds_dict=creds_dict,
+        )
+        self.route_groups = transition_route_groups.TransitionRouteGroups(creds_path, creds_dict)
         self.creds_path = creds_path
         self.intents_map = None
         if agent_id:
             self.agent_id = agent_id
             self.flow_map = self.flows.get_flows_map(
-                agent_id=agent_id, reverse=True
+                agent_id=agent_id,
+                reverse=True,
             )
             self.intents_map = self.intents.get_intents_map(agent_id)
             self.client_options = self._set_region(agent_id)
 
     @staticmethod
-    def get_route_df(page_df: pd.DataFrame, route_group_df: pd.DataFrame):
+    def get_route_df(
+        page_df: pd.DataFrame,
+        route_group_df: pd.DataFrame,
+    ):
         """Gets a route dataframe from page- and route-group-dataframes.
 
         Args:
@@ -101,7 +115,16 @@ class SearchUtil(scrapi_base.ScrapiBase):
         """
         routes_df = (
             pd.concat(
-                [page_df[["flow_name", "page_name", "routes"]], route_group_df],
+                [
+                    page_df[
+                        [
+                            "flow_name",
+                            "page_name",
+                            "routes",
+                        ]
+                    ],
+                    route_group_df,
+                ],
                 ignore_index=True,
             )
             .explode("routes", ignore_index=True)
@@ -109,9 +132,7 @@ class SearchUtil(scrapi_base.ScrapiBase):
             .assign(
                 intent=lambda df: df.routes.apply(attrgetter("intent")),
                 condition=lambda df: df.routes.apply(attrgetter("condition")),
-                trigger_fulfillment=lambda df: df.routes.apply(
-                    attrgetter("trigger_fulfillment")
-                ),
+                trigger_fulfillment=lambda df: df.routes.apply(attrgetter("trigger_fulfillment")),
             )
             .drop(columns="routes")
         )
@@ -134,13 +155,20 @@ class SearchUtil(scrapi_base.ScrapiBase):
             initial_prompt_fulfillment
         """
         param_df = (
-            page_df[["flow_name", "page_name", "parameters"]]
+            page_df[
+                [
+                    "flow_name",
+                    "page_name",
+                    "parameters",
+                ]
+            ]
             .explode("parameters", ignore_index=True)
-            .dropna(subset=["parameters"], axis="index")
+            .dropna(
+                subset=["parameters"],
+                axis="index",
+            )
             .assign(
-                parameter_name=lambda df: df.parameters.apply(
-                    attrgetter("display_name")
-                ),
+                parameter_name=lambda df: df.parameters.apply(attrgetter("display_name")),
                 reprompt_event_handlers=lambda df: df.parameters.apply(
                     attrgetter("fill_behavior.reprompt_event_handlers")
                 ),
@@ -170,15 +198,27 @@ class SearchUtil(scrapi_base.ScrapiBase):
         event_handler_df = (
             pd.concat(
                 [
-                    page_df[["flow_name", "page_name", "event_handlers"]],
+                    page_df[
+                        [
+                            "flow_name",
+                            "page_name",
+                            "event_handlers",
+                        ]
+                    ],
                     param_reprompt_event_handler_df.rename(
                         columns={"reprompt_event_handlers": "event_handlers"}
                     ),
                 ],
                 ignore_index=True,
             )
-            .explode("event_handlers", ignore_index=True)
-            .dropna(subset=["event_handlers"], axis="index")
+            .explode(
+                "event_handlers",
+                ignore_index=True,
+            )
+            .dropna(
+                subset=["event_handlers"],
+                axis="index",
+            )
             .assign(
                 event=lambda df: df.event_handlers.apply(attrgetter("event")),
                 trigger_fulfillment=lambda df: df.event_handlers.apply(
@@ -190,7 +230,9 @@ class SearchUtil(scrapi_base.ScrapiBase):
         return event_handler_df
 
     @staticmethod
-    def _get_msg_type(message: types.ResponseMessage):
+    def _get_msg_type(
+        message: types.ResponseMessage,
+    ):
         """Gets the response message type for a message from a fulfillment.
 
         Args:
@@ -202,9 +244,7 @@ class SearchUtil(scrapi_base.ScrapiBase):
         """
         if pd.isna(message):
             value = np.nan
-        elif isinstance(message, types.ResponseMessage) and (
-            str(message) == ""
-        ):
+        elif isinstance(message, types.ResponseMessage) and (str(message) == ""):
             value = np.nan
         elif "text" in message:
             value = "text"
@@ -223,7 +263,9 @@ class SearchUtil(scrapi_base.ScrapiBase):
         return value
 
     @staticmethod
-    def _gather_text_responses(text_message: types.ResponseMessage.Text):
+    def _gather_text_responses(
+        text_message: types.ResponseMessage.Text,
+    ):
         """Flattens a Dialogflow CX text structure.
 
         Args:
@@ -236,7 +278,9 @@ class SearchUtil(scrapi_base.ScrapiBase):
         return flat_texts
 
     def _format_response_message(
-        self, message: types.ResponseMessage, message_format: str
+        self,
+        message: types.ResponseMessage,
+        message_format: str,
     ):
         """Conditionally unpacks message formats.
 
@@ -249,9 +293,7 @@ class SearchUtil(scrapi_base.ScrapiBase):
         """
         if pd.isna(message):
             contents = np.nan
-        elif isinstance(message, types.ResponseMessage) and (
-            str(message) == ""
-        ):
+        elif isinstance(message, types.ResponseMessage) and (str(message) == ""):
             contents = np.nan
         elif "payload" in message:
             c = self.recurse_proto_marshal_to_dict(message.payload)
@@ -260,25 +302,14 @@ class SearchUtil(scrapi_base.ScrapiBase):
             c = {"audio_uri": message.play_audio.audio_uri}
             contents = {"play_audio": c} if (message_format == "dict") else c
         elif "live_agent_handoff" in message:
-            c = self.recurse_proto_marshal_to_dict(
-                message.live_agent_handoff.metadata
-            )
-            contents = (
-                {"live_agent_handoff": c} if (message_format == "dict") else c
-            )
+            c = self.recurse_proto_marshal_to_dict(message.live_agent_handoff.metadata)
+            contents = {"live_agent_handoff": c} if (message_format == "dict") else c
         elif "conversation_success" in message:
-            c = self.recurse_proto_marshal_to_dict(
-                message.conversation_success.metadata
-            )
-            contents = (
-                {"conversation_success": c} if (
-                    message_format == "dict") else c
-            )
+            c = self.recurse_proto_marshal_to_dict(message.conversation_success.metadata)
+            contents = {"conversation_success": c} if (message_format == "dict") else c
         elif "output_audio_text" in message:
             c = message.output_audio_text.text
-            contents = (
-                {"output_audio_text": c} if (message_format == "dict") else c
-            )
+            contents = {"output_audio_text": c} if (message_format == "dict") else c
         elif "text" in message:
             c = SearchUtil._gather_text_responses(message.text)
             contents = {"text": c} if (message_format == "dict") else c
@@ -347,8 +378,8 @@ class SearchUtil(scrapi_base.ScrapiBase):
             flow_level_event_handlers_dataframe = pd.DataFrame()
 
             for handler in flow_level_event_handlers:
-                flow_level_event_handlers_dataframe = (
-                    pd.concat([
+                flow_level_event_handlers_dataframe = pd.concat(
+                    [
                         flow_level_event_handlers_dataframe,
                         pd.DataFrame(
                             columns=[
@@ -367,13 +398,15 @@ class SearchUtil(scrapi_base.ScrapiBase):
                                     handler.target_page,
                                 ]
                             ],
+                        ),
+                    ]
                         )
-                    ])
-                )
-                flow_event_handler_data = pd.concat([
+                flow_event_handler_data = pd.concat(
+                    [
                     flow_event_handler_data,
-                    flow_level_event_handlers_dataframe
-                ])
+                        flow_level_event_handlers_dataframe,
+                    ]
+                )
 
         return flow_event_handler_data
 
@@ -388,8 +421,8 @@ class SearchUtil(scrapi_base.ScrapiBase):
                 page_level_event_handlers = page.event_handlers
                 page_level_event_handlers_dataframe = pd.DataFrame()
                 for handler in page_level_event_handlers:
-                    page_level_event_handlers_dataframe = (
-                        pd.concat([
+                    page_level_event_handlers_dataframe = pd.concat(
+                        [
                             page_level_event_handlers_dataframe,
                             pd.DataFrame(
                                 columns=[
@@ -410,14 +443,16 @@ class SearchUtil(scrapi_base.ScrapiBase):
                                         handler.target_page,
                                     ]
                                 ],
-                            )
-                        ])
+                            ),
+                        ]
                     )
 
-                page_level_event_handlers_all_dataframe = pd.concat([
+                page_level_event_handlers_all_dataframe = pd.concat(
+                    [
                     page_level_event_handlers_all_dataframe,
-                    page_level_event_handlers_dataframe
-                ])
+                        page_level_event_handlers_dataframe,
+                    ]
+                )
         return page_level_event_handlers_all_dataframe
 
     # Parameters - event handlers
@@ -429,12 +464,11 @@ class SearchUtil(scrapi_base.ScrapiBase):
             for page in pages_in_flow:
                 parameters = page.form.parameters
                 for parameter in parameters:
-                    parameter_event_handlers = (
-                        parameter.fill_behavior.reprompt_event_handlers
-                    )
+                    parameter_event_handlers = parameter.fill_behavior.reprompt_event_handlers
                     param_lvl_event_df = pd.DataFrame()
                     for handler in parameter_event_handlers:
-                        param_lvl_event_df = pd.concat([
+                        param_lvl_event_df = pd.concat(
+                            [
                             param_lvl_event_df,
                             pd.DataFrame(
                                 columns=[
@@ -457,12 +491,15 @@ class SearchUtil(scrapi_base.ScrapiBase):
                                         handler.target_page,
                                     ]
                                 ],
+                                ),
+                            ]
                             )
-                        ])
-                    parameter_level_event_handlers_all_dataframe = pd.concat([
+                    parameter_level_event_handlers_all_dataframe = pd.concat(
+                        [
                         parameter_level_event_handlers_all_dataframe,
-                        param_lvl_event_df
-                    ])
+                            param_lvl_event_df,
+                        ]
+                    )
         return parameter_level_event_handlers_all_dataframe
 
     def find_list_parameters(self, agent_id):
@@ -514,8 +551,18 @@ class SearchUtil(scrapi_base.ScrapiBase):
         for route in page.transition_routes:
             if search.lower() in route.condition.lower():
                 iter_frame = pd.DataFrame(
-                    columns=["resource_id", "condition", "route_id"],
-                    data=[[page_id, route.condition, i]],
+                    columns=[
+                        "resource_id",
+                        "condition",
+                        "route_id",
+                    ],
+                    data=[
+                        [
+                            page_id,
+                            route.condition,
+                            i,
+                        ]
+                    ],
                 )
                 locator = pd.concat([locator, iter_frame])
             i += 1
@@ -539,8 +586,18 @@ class SearchUtil(scrapi_base.ScrapiBase):
         for route in flow.transition_routes:
             if search.lower() in route.condition.lower():
                 iter_frame = pd.DataFrame(
-                    columns=["resource_id", "condition", "route_id"],
-                    data=[[flow_id, route.condition, i]],
+                    columns=[
+                        "resource_id",
+                        "condition",
+                        "route_id",
+                    ],
+                    data=[
+                        [
+                            flow_id,
+                            route.condition,
+                            i,
+                        ]
+                    ],
                 )
                 locator = pd.concat([locator, iter_frame])
             i += 1
@@ -584,7 +641,8 @@ class SearchUtil(scrapi_base.ScrapiBase):
         if page_name:
             try:
                 flows_map = self.flows.get_flows_map(
-                    agent_id=agent_id, reverse=True
+                    agent_id=agent_id,
+                    reverse=True,
                 )
             # check - maybe other error types here
             except ValueError:
@@ -595,10 +653,12 @@ class SearchUtil(scrapi_base.ScrapiBase):
                 )
             try:
                 pages_map = self.pages.get_pages_map(
-                    flow_id=flows_map[flow_name], reverse=True
+                    flow_id=flows_map[flow_name],
+                    reverse=True,
                 )
                 return self.search_conditionals_page(
-                    page_id=pages_map[page_name], search=search
+                    page_id=pages_map[page_name],
+                    search=search,
                 )
 
             except ValueError:
@@ -613,10 +673,12 @@ class SearchUtil(scrapi_base.ScrapiBase):
             locator = pd.DataFrame()
             try:
                 flows_map = self.flows.get_flows_map(
-                    agent_id=agent_id, reverse=True
+                    agent_id=agent_id,
+                    reverse=True,
                 )
                 flow_search = self.search_conditionals_flow(
-                    flow_id=flows_map[flow_name], search=search
+                    flow_id=flows_map[flow_name],
+                    search=search,
                 )
                 flow_search.insert(0, "resource_name", flow_name)
                 flow_search.insert(0, "resource_type", "flow")
@@ -631,11 +693,13 @@ class SearchUtil(scrapi_base.ScrapiBase):
             if flag_search_all:
 
                 pages_map = self.pages.get_pages_map(
-                    flow_id=flows_map[flow_name], reverse=True
+                    flow_id=flows_map[flow_name],
+                    reverse=True,
                 )
                 for page in pages_map:
                     page_search = self.search_conditionals_page(
-                        page_id=pages_map[page], search=search
+                        page_id=pages_map[page],
+                        search=search,
                     )
                     time.sleep(0.5)
                     page_search.insert(0, "resource_name", page)
@@ -647,22 +711,23 @@ class SearchUtil(scrapi_base.ScrapiBase):
         if flow_name is None and page_name is None and flag_search_all is True:
             locator = pd.DataFrame()
 
-            flows_map = self.flows.get_flows_map(
-                agent_id=agent_id, reverse=True
-            )
+            flows_map = self.flows.get_flows_map(agent_id=agent_id, reverse=True)
             for flow in flows_map:
                 flow_search = self.search_conditionals_flow(
-                    flow_id=flows_map[flow], search=search
+                    flow_id=flows_map[flow],
+                    search=search,
                 )
                 flow_search.insert(0, "resource_name", flow)
                 flow_search.insert(0, "resource_type", "flow")
                 locator = pd.concat([locator, flow_search])
                 pages_map = self.pages.get_pages_map(
-                    flow_id=flows_map[flow], reverse=True
+                    flow_id=flows_map[flow],
+                    reverse=True,
                 )
                 for page in pages_map:
                     page_search = self.search_conditionals_page(
-                        page_id=pages_map[page], search=search
+                        page_id=pages_map[page],
+                        search=search,
                     )
                     time.sleep(0.5)
                     page_search.insert(0, "resource_name", page)
@@ -702,9 +767,7 @@ class SearchUtil(scrapi_base.ScrapiBase):
         flow_map = self.flows.get_flows_map(agent_id=agent_id, reverse=True)
 
         for flow_display_name in flow_map.keys():
-            flow_scan = self._find_true_routes_flow_level(
-                flow_display_name, flow_map
-            )
+            flow_scan = self._find_true_routes_flow_level(flow_display_name, flow_map)
             agent_results = pd.concat([agent_results, flow_scan])
         return agent_results
 
@@ -728,7 +791,10 @@ class SearchUtil(scrapi_base.ScrapiBase):
         return event_handler_scan
 
     def get_agent_fulfillment_message_df(
-        self, agent_id: str, message_format: str = "dict"
+        self,
+        agent_id: str,
+        language_code: str,
+        message_format: str = "dict",
     ):
         """Gets prompts/responses from agent on a fulfillment message level.
 
@@ -753,40 +819,49 @@ class SearchUtil(scrapi_base.ScrapiBase):
             response_message,
             conditional_cases
         """
-        if message_format not in {"proto", "dict", "human-readable"}:
+        if message_format not in {
+            "proto",
+            "dict",
+            "human-readable",
+        }:
             raise ValueError(
                 "Arg message_format must be 'proto', 'dict', or\
                     'human-readable'"
             )
 
-        fulfillment_df = self.get_raw_agent_fulfillment_df(agent_id)
+        fulfillment_df = self.get_raw_agent_fulfillment_df(agent_id, language_code)
         msg_df = (
             fulfillment_df.assign(
-                response_message=lambda df: df.fulfillment.apply(
-                    attrgetter("messages")
-                ),
-                conditional_cases=lambda df: df.fulfillment.apply(
-                    attrgetter("conditional_cases")
-                ),
+                response_message=lambda df: df.fulfillment.apply(attrgetter("messages")),
+                conditional_cases=lambda df: df.fulfillment.apply(attrgetter("conditional_cases")),
             )
             .drop(columns="fulfillment")
-            .explode("response_message", ignore_index=True)
-            .assign(
-                response_type=lambda df: df.response_message.apply(
-                    self._get_msg_type
+            .explode(
+                "response_message",
+                ignore_index=True,
                 )
-            )
+            .assign(response_type=lambda df: df.response_message.apply(self._get_msg_type))
         )
         # no format change for 'proto'
-        if message_format in ["dict", "human-readable"]:
+        if message_format in [
+            "dict",
+            "human-readable",
+        ]:
             msg_df.response_message = msg_df.response_message.apply(
-                self._format_response_message, args=(message_format,)
+                self._format_response_message,
+                args=(message_format,),
             )
         msg_df = msg_df.assign(
             conditional_cases=lambda df: df.conditional_cases.apply(
                 lambda cc: np.nan if cc == [] else cc
             )
-        ).dropna(subset=["response_type", "conditional_cases"], thresh=1)
+        ).dropna(
+            subset=[
+                "response_type",
+                "conditional_cases",
+            ],
+            thresh=1,
+        )
         if message_format == "human-readable":
             msg_df.fillna("", inplace=True)
 
@@ -805,11 +880,17 @@ class SearchUtil(scrapi_base.ScrapiBase):
 
         return msg_df[column_order]
 
-    def get_raw_agent_fulfillment_df(self, agent_id: str):
+    def get_raw_agent_fulfillment_df(
+        self,
+        agent_id: str,
+        language_code: str = None,
+    ):
         """Gets all fulfillment structures for an agent.
 
         Args:
           agent_id: ID of the Dialogflow CX agent.
+          language_code: Language code of the intents being uploaded. Ref:
+            https://cloud.google.com/dialogflow/cx/docs/reference/language
 
         Returns:
           dataframe with columns:
@@ -822,7 +903,7 @@ class SearchUtil(scrapi_base.ScrapiBase):
             condition,
             fulfillment
         """
-        flow_df = self.get_flow_df(agent_id)
+        flow_df = self.get_flow_df(agent_id, language_code)
         page_df = self.get_page_df(flow_df)
 
         route_group_df = self.get_route_group_df(
@@ -849,7 +930,8 @@ class SearchUtil(scrapi_base.ScrapiBase):
             ]
         ]
         event_handler_df = self.get_event_handler_df(
-            page_df, param_reprompt_event_handler_df
+            page_df,
+            param_reprompt_event_handler_df,
         )
 
         fulfillment_df = pd.concat(
@@ -862,11 +944,8 @@ class SearchUtil(scrapi_base.ScrapiBase):
                         "event_handlers",
                     ]
                 ).rename(columns={"entry_fulfillment": "fulfillment"}),
-                event_handler_df.rename(
-                    columns={"trigger_fulfillment": "fulfillment"}
-                ),
-                route_df.rename(
-                    columns={"trigger_fulfillment": "fulfillment"}),
+                event_handler_df.rename(columns={"trigger_fulfillment": "fulfillment"}),
+                route_df.rename(columns={"trigger_fulfillment": "fulfillment"}),
                 param_initial_prompt_fulfillment_df.rename(
                     columns={"initial_prompt_fulfillment": "fulfillment"}
                 ),
@@ -875,11 +954,17 @@ class SearchUtil(scrapi_base.ScrapiBase):
         ).dropna(subset=["fulfillment"], axis="index")
         return fulfillment_df
 
-    def get_flow_df(self, agent_id: str):
+    def get_flow_df(
+        self,
+        agent_id: str,
+        language_code: str = None,
+    ):
         """Gets a flow dataframe for an agent.
 
         Args:
           agent_id: ID of the Dialogflow CX agent.
+          language_code: Language code of the intents being uploaded. Ref:
+            https://cloud.google.com/dialogflow/cx/docs/reference/language
 
         Returns:
           flow dataframe with columns:
@@ -889,7 +974,10 @@ class SearchUtil(scrapi_base.ScrapiBase):
             event_handlers,
             route_groups
         """
-        flowlist = self.flows.list_flows(agent_id=agent_id)
+        flowlist = self.flows.list_flows(
+            agent_id=agent_id,
+            language_code=language_code,
+        )
         flow_df = pd.DataFrame(
             [
                 {
@@ -930,36 +1018,31 @@ class SearchUtil(scrapi_base.ScrapiBase):
         page_df = page_df[~page_df.page_obj.isna()]
 
         page_df = page_df.assign(
-            page_name=lambda df: df.page_obj.apply(
-                attrgetter("display_name")
-            ),
-            entry_fulfillment=lambda df: df.page_obj.apply(
-                attrgetter("entry_fulfillment")
-            ),
-            parameters=lambda df: df.page_obj.apply(
-                attrgetter("form.parameters")
-            ),
-            route_groups=lambda df: df.page_obj.apply(
-                attrgetter("transition_route_groups")
-            ),
-            routes=lambda df: df.page_obj.apply(
-                attrgetter("transition_routes")
-            ),
-            event_handlers=lambda df: df.page_obj.apply(
-                attrgetter("event_handlers")
-            ))
+            page_name=lambda df: df.page_obj.apply(attrgetter("display_name")),
+            entry_fulfillment=lambda df: df.page_obj.apply(attrgetter("entry_fulfillment")),
+            parameters=lambda df: df.page_obj.apply(attrgetter("form.parameters")),
+            route_groups=lambda df: df.page_obj.apply(attrgetter("transition_route_groups")),
+            routes=lambda df: df.page_obj.apply(attrgetter("transition_routes")),
+            event_handlers=lambda df: df.page_obj.apply(attrgetter("event_handlers")),
+        )
 
         page_df = page_df.drop(columns="page_obj")
 
         # add in the start pages (flow objects)
         page_df = pd.concat(
-            [page_df, flow_df.assign(page_name="START_PAGE")], ignore_index=True
+            [
+                page_df,
+                flow_df.assign(page_name="START_PAGE"),
+            ],
+            ignore_index=True,
         ).drop(columns="flow_id")
 
         return page_df
 
     def get_route_group_df(
-        self, page_df: pd.DataFrame, flow_id_list: List[str]
+        self,
+        page_df: pd.DataFrame,
+        flow_id_list: List[str],
     ):
         """Gets route groups dataframe for the pages in an input dataframe.
 
@@ -979,24 +1062,27 @@ class SearchUtil(scrapi_base.ScrapiBase):
         """
         agent_route_groups = []
         for flow_id in flow_id_list:
-            agent_route_groups.extend(
-                self.route_groups.list_transition_route_groups(flow_id)
-            )
+            agent_route_groups.extend(self.route_groups.list_transition_route_groups(flow_id))
         rgdict = {rg.name: rg for rg in agent_route_groups}
 
         route_group_df = (
-            page_df[["flow_name", "page_name", "route_groups"]]
+            page_df[
+                [
+                    "flow_name",
+                    "page_name",
+                    "route_groups",
+                ]
+            ]
             .explode("route_groups", ignore_index=True)
-            .dropna(subset=["route_groups"], axis="index")
+            .dropna(
+                subset=["route_groups"],
+                axis="index",
+            )
             .assign(
                 # below: map route group ids to route group data structures
                 route_groups=lambda df: df.route_groups.map(rgdict),
-                route_group_name=lambda df: df.route_groups.apply(
-                    attrgetter("display_name")
-                ),
-                routes=lambda df: df.route_groups.apply(
-                    attrgetter("transition_routes")
-                ),
+                route_group_name=lambda df: df.route_groups.apply(attrgetter("display_name")),
+                routes=lambda df: df.route_groups.apply(attrgetter("transition_routes")),
             )
             .drop(columns="route_groups")
         )
