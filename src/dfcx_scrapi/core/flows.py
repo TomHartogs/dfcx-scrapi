@@ -155,12 +155,16 @@ class Flows(scrapi_base.ScrapiBase):
 
         return response
 
-    def list_flows(self, agent_id: str) -> List[types.Flow]:
+    def list_flows(
+        self, agent_id: str, language_code: str = None
+    ) -> List[types.Flow]:
         """Get a List of all Flows in the current Agent.
 
         Args:
           agent_id: CX Agent ID string in the proper format
             projects/<PROJECT ID>/locations/<LOCATION ID>/agents/<AGENT ID>
+        language_code: Language code of the intents being uploaded. Ref:
+            https://cloud.google.com/dialogflow/cx/docs/reference/language
 
         Returns:
           List of Flow objects
@@ -168,6 +172,8 @@ class Flows(scrapi_base.ScrapiBase):
 
         request = types.flow.ListFlowsRequest()
         request.parent = agent_id
+        if language_code:
+            request.language_code = language_code
 
         client_options = self._set_region(agent_id)
         client = services.flows.FlowsClient(
